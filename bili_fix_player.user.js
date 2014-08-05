@@ -2,11 +2,12 @@
 // @name        bili_fix_player
 // @namespace   bili
 // @description 修复B站播放器,黑科技,列表页、搜索页弹窗,破乐视限制,提供高清、低清晰源下载,弹幕下载
-// @include     /^.*\.bilibili\.(tv|com|cn)\/(video\/|search)?.*$/
-// @include     /^.*bilibili\.kankanews\.com\/(video\/|search)?.*$/
+// @include     http://www.bilibili.com/video/*
+// @include     http://www.bilibili.com/search/*
+// @include     http://www.bilibili.com/sp/*
+// @note         jiayiming 自用修改
+// @note         2014.08.05  添加专题番剧弹窗的支持，同时支持翻页。
 // @version     3.6.5
-// @updateURL   https://nightlyfantasy.github.io/Bili_Fix_Player/bili_fix_player.meta.js
-// @downloadURL https://nightlyfantasy.github.io/Bili_Fix_Player/bili_fix_player.user.js
 // @require http://static.hdslb.com/js/jquery.min.js
 // @grant       GM_xmlhttpRequest
 // @grant       GM_getValue
@@ -355,71 +356,110 @@
 				$(this).find('.t').prepend('<a class="single_player" href="javascript:void(0);" style="color:red;" data-field="' + aid + '">弹▶</a>');
 			});
 		//弹窗默认的第一P，建立弹窗播放器并建立分P列表===click事件应该在each事件之后执行
-		$('.single_player').click(
-			function() {
-				//$('.dialogcontainter').remove();//防止同时播放两个视频
-				$('#player-list').remove(); //移除播放列表
-				var a = '<p id="window_play_title">脚本(｀・ω・´)正在加载中</p><div id="player_content">脚本(｀・ω・´)播放器正在努力加载中....</div>';
-				var list_html = '<div id="player-list"><div class="sort"><i>分P列表</i></div><ul id="window_play_list"></ul></div>';
-							
-				var title = $(this).parent('.t').html() === null ? $(this).parent('.title').html() : $(this).parent('.t').html();
-				var aid = $(this).attr('data-field');
-				var title_html = '<a class="mark_my_video" href="javascript:void(0);" style="color:#006766;" data-field="' + aid + '">收藏★</a>&nbsp;&nbsp;&nbsp;<a href="http://www.bilibili.com/video/av' + aid + '/" style="color:#D54851" target="_blank">打开播放页</a>&nbsp;&nbsp;&nbsp;<span style="color:#8C8983">' + title.replace('弹▶', '') + '</span>&nbsp;&nbsp;&nbsp;▶<span id="window_play_info"></span>';			
-				setTimeout(function() {
-					creat(title_html, a); //创建可视化窗口
-					$('.dialogcontainter').after(list_html);
-					$('#window_play_info').html('正在播放第<span style="color:#F0CF1D">1P</span>');
-					$('#window_play_title').html('<p><a id="div_positon_button" class="button-small button-flat-action" style="background: none repeat scroll 0% 0% #E54C7E;">固定播放器</a><a id="list_control_button" class="button-small button-flat-action" style="background: none repeat scroll 0% 0% #0CB3EE;">收缩分P列表[在左边]</a>[拖动标题可移动播放器，拖动右下角可改变播放器大小，设置后自动保存宽高和位置]</p>');
-					//切换分P按钮
-					$('#list_control_button').click(function() {
-						var flag = $("#player-list").css("display");
-						if (flag == "none") {
-							$("#player-list").show();
-							$('#list_control_button').html('收缩分P列表');
-							$('#list_control_button').css('background', 'none repeat scroll 0% 0% #0CB3EE');
-						} else {
-							$("#player-list").hide();
-							$('#list_control_button').html('显示分P列表');
-							$('#list_control_button').css('background', 'none repeat scroll 0% 0% #FF2C14');
-						}
-					});
-					//固定播放器按钮
-					$('#div_positon_button').click(function() {
-						var p = $('.dialogcontainter').css('position');
-						if (p == "fixed") {
-							$('.dialogcontainter').css('position', 'absolute');
-							$('#player-list').css('position', 'absolute');
-							$('#div_positon_button').html('浮动播放器');
-							$('#div_positon_button').css('background', 'none repeat scroll 0% 0% #FECD3E');
-						} else {
-							$('.dialogcontainter').css('position', 'fixed');
-							$('#player-list').css('position', 'fixed');
-							$('#div_positon_button').html('固定播放器');
-							$('#div_positon_button').css('background', 'none repeat scroll 0% 0% #E54C7E');
-						}
-					});
-					//弹窗播放器收藏功能
-					$('.mark_my_video').click(function() {
-						var aid = $(this).attr('data-field');
-						$.ajax({
-							type: 'POST',
-							url: 'http://www.bilibili.com/m/stow',
-							data: 'dopost=save&aid=' + aid + '&stow_target=stow&ajax=1',
-							success: function(r) {
-								//$('#edit_status_bar').html(r);
-								alert('收藏成功');
-							},
-							error: function(r) {
-								alert('出错，请重试！');
-							},
-							dataType: 'text'
+		function single_player_ini() {
+			$('.single_player').click(
+				function() {
+					//$('.dialogcontainter').remove();//防止同时播放两个视频
+					$('#player-list').remove(); //移除播放列表
+					var a = '<p id="window_play_title">脚本(｀・ω・´)正在加载中</p><div id="player_content">脚本(｀・ω・´)播放器正在努力加载中....</div>';
+					var list_html = '<div id="player-list"><div class="sort"><i>分P列表</i></div><ul id="window_play_list"></ul></div>';
+								
+					var title = $(this).parent('.t').html() === null ? $(this).parent('.title').html() : $(this).parent('.t').html();
+					var aid = $(this).attr('data-field');
+					var title_html = '<a class="mark_my_video" href="javascript:void(0);" style="color:#006766;" data-field="' + aid + '">收藏★</a>&nbsp;&nbsp;&nbsp;<a href="http://www.bilibili.com/video/av' + aid + '/" style="color:#D54851" target="_blank">打开播放页</a>&nbsp;&nbsp;&nbsp;<span style="color:#8C8983">' + title.replace('弹▶', '') + '</span>&nbsp;&nbsp;&nbsp;▶<span id="window_play_info"></span>';			
+					setTimeout(function() {
+						creat(title_html, a); //创建可视化窗口
+						$('.dialogcontainter').after(list_html);
+						$('#window_play_info').html('正在播放第<span style="color:#F0CF1D">1P</span>');
+						$('#window_play_title').html('<p><a id="div_positon_button" class="button-small button-flat-action" style="background: none repeat scroll 0% 0% #E54C7E;">固定播放器</a><a id="list_control_button" class="button-small button-flat-action" style="background: none repeat scroll 0% 0% #0CB3EE;">收缩分P列表[在左边]</a>[拖动标题可移动播放器，拖动右下角可改变播放器大小，设置后自动保存宽高和位置]</p>');
+						//切换分P按钮
+						$('#list_control_button').click(function() {
+							var flag = $("#player-list").css("display");
+							if (flag == "none") {
+								$("#player-list").show();
+								$('#list_control_button').html('收缩分P列表');
+								$('#list_control_button').css('background', 'none repeat scroll 0% 0% #0CB3EE');
+							} else {
+								$("#player-list").hide();
+								$('#list_control_button').html('显示分P列表');
+								$('#list_control_button').css('background', 'none repeat scroll 0% 0% #FF2C14');
+							}
 						});
+						//固定播放器按钮
+						$('#div_positon_button').click(function() {
+							var p = $('.dialogcontainter').css('position');
+							if (p == "fixed") {
+								$('.dialogcontainter').css('position', 'absolute');
+								$('#player-list').css('position', 'absolute');
+								$('#div_positon_button').html('浮动播放器');
+								$('#div_positon_button').css('background', 'none repeat scroll 0% 0% #FECD3E');
+							} else {
+								$('.dialogcontainter').css('position', 'fixed');
+								$('#player-list').css('position', 'fixed');
+								$('#div_positon_button').html('固定播放器');
+								$('#div_positon_button').css('background', 'none repeat scroll 0% 0% #E54C7E');
+							}
+						});
+						//弹窗播放器收藏功能
+						$('.mark_my_video').click(function() {
+							var aid = $(this).attr('data-field');
+							$.ajax({
+								type: 'POST',
+								url: 'http://www.bilibili.com/m/stow',
+								data: 'dopost=save&aid=' + aid + '&stow_target=stow&ajax=1',
+								success: function(r) {
+									//$('#edit_status_bar').html(r);
+									alert('收藏成功');
+								},
+								error: function(r) {
+									alert('出错，请重试！');
+								},
+								dataType: 'text'
+							});
+						});
+					}, 0);
+					setTimeout(function() {
+						aid_build_player(aid);
+					}, 0);
+				});
+		}
+		single_player_ini();
+
+		//专题列表弹窗UI
+		function sp_check(doc) {
+				$('.bgm_list li a').each(
+					function() {
+						var href = $(this).attr('href');
+						var pattern = /\/video\/av(\d+)\//ig;
+						var content = pattern.exec(href);
+						var aid = content ? (content[1]) : '';
+						var ref = $(this).find('.t');
+						if (aid != '' && ref.children("a").length == 0) {
+							ref.prepend('<a class="single_player" href="javascript:void(0);" style="color:red;" data-field="' + aid + '">弹▶</a>');
+						}
 					});
-				}, 0);
-				setTimeout(function() {
-					aid_build_player(aid);
-				}, 0);
+				single_player_ini();
+		}
+		//初始化专题列表
+		sp_check();
+		//添加页面XHR局部刷新的支持
+		function addMutationObserver(selector, callback) {
+			var watch = document.querySelector(selector);
+			if (!watch) return;
+
+			var observer = new MutationObserver(function(mutations){
+				var nodeAdded = mutations.some(function(x){ console.log(x.addedNodes.length); return x.addedNodes.length > 3; });
+				if (nodeAdded) {
+					callback();
+				}
 			});
+			observer.observe(watch, {childList: true, subtree: true });
+		}
+		//监视SP专题番剧列表
+		addMutationObserver('.bgm_list', function(){
+			console.log('元素被添加')
+			sp_check();
+		});
 	}
 	//END弹窗------------------------------
 
